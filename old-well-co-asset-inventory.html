@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Old Well Co — Asset Inventory</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Aptos", Roboto, sans-serif;
+    margin: 0; padding: 0; background: #F4F6FB; color: #1F1F1F;
+    -webkit-font-smoothing: antialiased;
+  }
+  .header { background: #1F3864; color: #fff; padding: 24px 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .header h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }
+  .header .sub { opacity: 0.75; font-size: 13px; margin-top: 4px; }
+  .tabs { background: #fff; padding: 0 32px; border-bottom: 1px solid #E5E7EB; display: flex; gap: 0; position: sticky; top: 0; z-index: 10; }
+  .tabs button { background: none; border: none; padding: 14px 20px; font-size: 14px; font-weight: 500; color: #6B7280; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; }
+  .tabs button:hover { color: #1F3864; }
+  .tabs button.active { color: #1F3864; border-bottom-color: #5B9BD5; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: #fff; padding: 16px 18px; border-radius: 8px; border-left: 4px solid #5B9BD5; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .kpi .label { font-size: 11px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 6px; }
+  .kpi .value { font-size: 24px; color: #1F3864; font-weight: 700; }
+  .kpi.alert { border-left-color: #DC2626; }
+  .kpi.alert .value { color: #991B1B; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #E5E7EB; }
+  .card .card-header { background: #1F3864; color: #fff; padding: 12px 16px; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; }
+  .card table { width: 100%; border-collapse: collapse; }
+  .card td, .card th { padding: 10px 16px; border-bottom: 1px solid #F3F4F6; font-size: 13px; }
+  .card tr:last-child td { border-bottom: none; }
+  .card tr:nth-child(even) td { background: #F2F6FB; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bold { font-weight: 600; color: #1F3864; }
+  .renewal-due { color: #92400E; }
+  .action-due { color: #DC2626; }
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 240px; padding: 10px 14px; font-size: 14px; border: 1px solid #D1D5DB; border-radius: 6px; background: #fff; }
+  .search-input:focus { outline: none; border-color: #5B9BD5; box-shadow: 0 0 0 3px rgba(91,155,213,0.15); }
+  .count-badge { background: #1F3864; color: #fff; padding: 6px 12px; border-radius: 14px; font-size: 12px; font-weight: 600; }
+  .data-table-wrap { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); border: 1px solid #E5E7EB; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead th { background: #1F3864; color: #fff; padding: 12px 14px; text-align: left; font-weight: 600; letter-spacing: 0.3px; font-size: 12px; cursor: pointer; user-select: none; position: sticky; top: 51px; }
+  .data-table thead th:hover { background: #2E4A78; }
+  .data-table thead th::after { content: " ⇅"; opacity: 0.4; font-size: 10px; }
+  .data-table thead th.sorted-asc::after { content: " ↑"; opacity: 1; }
+  .data-table thead th.sorted-desc::after { content: " ↓"; opacity: 1; }
+  .data-table tbody td { padding: 10px 14px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
+  .data-table tbody tr:nth-child(even) td { background: #F2F6FB; }
+  .data-table tbody tr:hover td { background: #E8EFF8; }
+  .mono { font-family: "SF Mono", Consolas, "Courier New", monospace; font-size: 12px; }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+  .chip-blue { background: #DBEAFE; color: #1E40AF; }
+  .chip-amber { background: #FEF3C7; color: #92400E; }
+  .chip-green { background: #DCFCE7; color: #166534; }
+  .chip-red { background: #FEE2E2; color: #991B1B; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .footer { text-align: center; padding: 24px; color: #9CA3AF; font-size: 12px; }
+  @media print {
+    body { background: #fff; }
+    .tabs, .controls, .header { display: none; }
+    .section { display: block !important; page-break-after: always; }
+    .section:last-child { page-break-after: auto; }
+    .card, .data-table-wrap { box-shadow: none; border: 1px solid #ccc; }
+    .data-table thead th { position: static; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Old Well Co — Asset Inventory</h1>
+  <div class="sub">Vehicles, equipment, trailers & conex containers</div>
+</div>
+<div class="tabs">
+  <button class="active" data-tab="summary">Summary</button>
+  <button data-tab="vehicles">Vehicles (16)</button>
+  <button data-tab="equipment">Equipment (16)</button>
+  <button data-tab="conex">Conex (21)</button>
+</div>
+<div class="container">
+
+<div class="section active" id="summary">
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Total Assets</div><div class="value">32</div></div>
+    <div class="kpi"><div class="label">Vehicles</div><div class="value">16</div></div>
+    <div class="kpi"><div class="label">Equipment</div><div class="value">16</div></div>
+    <div class="kpi"><div class="label">Conex Containers</div><div class="value">21</div></div>
+    <div class="kpi"><div class="label">Annual Property Tax</div><div class="value">$8,719.86</div></div>
+    <div class="kpi"><div class="label">Total Loan Payment</div><div class="value">$1,355.60</div></div>
+    <div class="kpi alert"><div class="label">Photos Missing</div><div class="value">14</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header">COUNT BY CATEGORY</div><table><tbody>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="num bold">11</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td class="num bold">8</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td class="num bold">6</td></tr>
+      <tr><td><span class="chip chip-amber">Commercial</span></td><td class="num bold">2</td></tr>
+      <tr><td><span class="chip chip-green">Farm Truck</span></td><td class="num bold">2</td></tr>
+      <tr><td><span class="chip chip-green">Farm Equipment</span></td><td class="num bold">2</td></tr>
+      <tr><td><span class="chip chip-red">Fuel Truck</span></td><td class="num bold">1</td></tr>
+    </tbody></table></div>
+    <div class="card"><div class="card-header">COUNT BY LOCATION</div><table>
+      <thead><tr><th style="text-align:left">Location</th><th class="num">Assets</th><th class="num">Conex</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        <tr><td>Eric Shop</td><td class="num">18</td><td class="num">8</td><td class="num bold">26</td></tr>
+        <tr><td>Tanglebriar</td><td class="num">6</td><td class="num">6</td><td class="num bold">12</td></tr>
+        <tr><td>Eric Home</td><td class="num">4</td><td class="num">0</td><td class="num bold">4</td></tr>
+        <tr><td>Oates</td><td class="num">0</td><td class="num">3</td><td class="num bold">3</td></tr>
+        <tr><td>Tanglebriar House</td><td class="num">0</td><td class="num">2</td><td class="num bold">2</td></tr>
+        <tr><td>Logan Farms</td><td class="num">0</td><td class="num">1</td><td class="num bold">1</td></tr>
+        <tr><td>Raceway</td><td class="num">0</td><td class="num">1</td><td class="num bold">1</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="grid-3">
+    <div class="card"><div class="card-header">INSURANCE BY CARRIER</div><table><tbody>
+      <tr><td>Frankenmuth Ins Co</td><td class="num bold">8</td></tr>
+      <tr><td>National General</td><td class="num bold">5</td></tr>
+      <tr><td>Progressive</td><td class="num bold">3</td></tr>
+      <tr><td>First Citizens</td><td class="num bold">1</td></tr>
+    </tbody></table></div>
+    <div class="card"><div class="card-header">OWNER ENTITY</div><table><tbody>
+      <tr><td>Iron Holdings, LLC</td><td class="num bold">6</td></tr>
+      <tr><td>RAM LKN Investments LLC</td><td class="num bold">2</td></tr>
+      <tr><td>Nest Homes</td><td class="num bold">1</td></tr>
+      <tr><td>Jennifer Wood</td><td class="num bold">1</td></tr>
+    </tbody></table></div>
+    <div class="card"><div class="card-header">ACTION ITEMS</div><table><tbody>
+      <tr><td>Assets missing VIN</td><td class="num bold action-due">12</td></tr>
+      <tr><td>Assets missing Year</td><td class="num bold action-due">12</td></tr>
+      <tr><td>Assets missing Plate</td><td class="num bold action-due">15</td></tr>
+      <tr><td>Assets missing Owner</td><td class="num bold action-due">22</td></tr>
+      <tr><td>Photos Missing</td><td class="num bold action-due">14</td></tr>
+    </tbody></table></div>
+  </div>
+  <div class="card"><div class="card-header">REGISTRATION RENEWALS BY MONTH</div><table>
+    <thead><tr><th style="text-align:left">Month</th><th class="num">Count</th><th class="num">Property Tax $</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">JAN</td><td class="num bold renewal-due">1</td><td class="num">$1,531.53</td></tr>
+      <tr><td class="mono">FEB</td><td class="num bold renewal-due">1</td><td class="num"></td></tr>
+      <tr><td class="mono">MAR</td><td class="num"></td><td class="num"></td></tr>
+      <tr><td class="mono">APR</td><td class="num bold renewal-due">1</td><td class="num"></td></tr>
+      <tr><td class="mono">MAY</td><td class="num"></td><td class="num"></td></tr>
+      <tr><td class="mono">JUN</td><td class="num bold renewal-due">1</td><td class="num"></td></tr>
+      <tr><td class="mono">JUL</td><td class="num"></td><td class="num"></td></tr>
+      <tr><td class="mono">AUG</td><td class="num bold renewal-due">4</td><td class="num">$4,428.42</td></tr>
+      <tr><td class="mono">SEPT</td><td class="num bold renewal-due">1</td><td class="num">$68.55</td></tr>
+      <tr><td class="mono">OCT</td><td class="num"></td><td class="num"></td></tr>
+      <tr><td class="mono">NOV</td><td class="num"></td><td class="num"></td></tr>
+      <tr><td class="mono">DEC</td><td class="num bold renewal-due">1</td><td class="num">$2,486.31</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="section" id="vehicles">
+  <div class="controls">
+    <input type="text" class="search-input" placeholder="Search vehicles…" data-search="vehicles-table">
+    <span class="count-badge" id="vehicles-count">16 vehicles</span>
+  </div>
+  <div class="data-table-wrap"><table class="data-table" id="vehicles-table">
+    <thead><tr><th>Type</th><th>Year</th><th>Make</th><th>Model</th><th>Color</th><th>VIN</th><th>Plate</th><th>Location</th><th>Renewal</th><th>Owner</th><th>Insurance</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2017</td><td>Buick</td><td>Envision</td><td></td><td class="mono">LRBFXBSA3HD218623</td><td class="mono">VFS-1799</td><td>Eric Home</td><td>AUG</td><td>Iron Holdings, LLC</td><td>National General</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2017</td><td>Chevrolet</td><td>Suburban</td><td></td><td class="mono">1GNSKHKC6HR342236</td><td class="mono"></td><td>Eric Home</td><td></td><td></td><td>National General</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2021</td><td>Chevrolet</td><td>1500</td><td>Grey</td><td class="mono">1GCPYFEL6MZ121114</td><td class="mono"></td><td></td><td></td><td></td><td>Frankenmuth Ins Co</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2022</td><td>Chevrolet</td><td>1500</td><td>Black</td><td class="mono">1GCPDDEK5NZ588422</td><td class="mono">MCW-5294</td><td></td><td>April</td><td>Iron Holdings, LLC</td><td>Progressive</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono"></td><td>Chevy Pickup</td><td></td><td>Red</td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td><td></td><td></td><td></td></tr>
+      <tr><td><span class="chip chip-amber">Commercial</span></td><td class="mono">2018</td><td>Dodge</td><td>Ram 3500</td><td>Black</td><td class="mono">3C63RRGLXJG311799</td><td class="mono">AA-5701E</td><td>Eric Shop</td><td>JAN</td><td>Iron Holdings, LLC</td><td>Progressive</td></tr>
+      <tr><td><span class="chip chip-amber">Commercial</span></td><td class="mono">2018</td><td>Ford</td><td>F150</td><td>Grey</td><td class="mono">1FTEX1CG5JFA44946</td><td class="mono">VFS-1798</td><td>Eric Shop</td><td>AUG</td><td>Iron Holdings, LLC</td><td>Progressive</td></tr>
+      <tr><td><span class="chip chip-green">Farm Truck</span></td><td class="mono">2019</td><td>Ford</td><td>F450</td><td>Pearl White</td><td class="mono">1FT8W4DT5KEE98831</td><td class="mono">VX-8019</td><td>Eric Shop</td><td>AUG</td><td>Iron Holdings, LLC</td><td>Frankenmuth Ins Co</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono"></td><td>Ford</td><td></td><td>White and green</td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td><td></td><td></td><td></td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">1967</td><td>Ford</td><td>Utility Bed</td><td>Green</td><td class="mono">F10YNB40944</td><td class="mono"></td><td>Eric Shop</td><td></td><td></td><td></td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2017</td><td>GMC</td><td>Yukon</td><td>Charcoal</td><td class="mono">1GKS2CKJ5HR362279</td><td class="mono">VFS-1800</td><td>Eric Shop</td><td>AUG</td><td>Iron Holdings, LLC</td><td>National General</td></tr>
+      <tr><td><span class="chip chip-green">Farm Truck</span></td><td class="mono">2019</td><td>GMC</td><td>3500</td><td></td><td class="mono">54DBDJ1B0KS810346</td><td class="mono"></td><td></td><td></td><td></td><td>Frankenmuth Ins Co</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2019</td><td>GMC</td><td>Sierra K</td><td></td><td class="mono">1GT42WEY2KR244827</td><td class="mono"></td><td>Eric Home</td><td></td><td></td><td>National General</td></tr>
+      <tr><td><span class="chip chip-red">Fuel Truck</span></td><td class="mono">1995</td><td>International</td><td>4700</td><td>Red</td><td class="mono">1HTSCAAN1SH248491</td><td class="mono">AA-5781E</td><td>Eric Shop</td><td>FEB</td><td></td><td>Frankenmuth Ins Co</td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono"></td><td>Thunderbird</td><td></td><td>Red</td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td><td></td><td></td><td></td></tr>
+      <tr><td><span class="chip chip-blue">Personal</span></td><td class="mono">2000</td><td>Toyota</td><td>LandCruiser</td><td></td><td class="mono">JT3HT05J0Y0102393</td><td class="mono">KKB4693</td><td>Eric Home</td><td>SEPT</td><td>Jennifer Wood</td><td>National General</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="section" id="equipment">
+  <div class="controls">
+    <input type="text" class="search-input" placeholder="Search equipment…" data-search="equipment-table">
+    <span class="count-badge" id="equipment-count">16 items</span>
+  </div>
+  <div class="data-table-wrap"><table class="data-table" id="equipment-table">
+    <thead><tr><th>Type</th><th>Description</th><th>Asset #</th><th>Make</th><th>Model</th><th>Year</th><th>VIN/Serial</th><th>Location</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>7 x 16 Ft 12" sides</td><td class="mono">TRL1-06</td><td>Big Tex</td><td>70 PL</td><td class="mono">2022</td><td class="mono"></td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>Mini Excavator</td><td class="mono"></td><td>Bobcat</td><td>Mini Ex</td><td class="mono">2020</td><td class="mono">B4GM11445</td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>Semi</td><td class="mono">TT-08</td><td>Freightliner</td><td>CL120T</td><td class="mono">2006</td><td class="mono">1FUJA6CKX6LW10487</td><td></td></tr>
+      <tr><td><span class="chip chip-green">Farm Equipment</span></td><td>John Deere Tractor</td><td class="mono"></td><td>John Deere</td><td>Compact Tractor</td><td class="mono"></td><td class="mono"></td><td>Tanglebriar</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Gooseneck</td><td class="mono"></td><td>Kaufman</td><td></td><td class="mono">2017</td><td class="mono">5VGFH3023HLL001757</td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Wood Deck Trailer</td><td class="mono">TRL1-17</td><td>Krafstman</td><td>FS-18</td><td class="mono">2021</td><td class="mono">5E7FS2529MA001837</td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Flat Trailer</td><td class="mono">TRL1-09</td><td>Lucon</td><td></td><td class="mono">2016</td><td class="mono">1L9PU1829HG423168</td><td>Tanglebriar</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>Dump Truck</td><td class="mono"></td><td>Mack</td><td>RD690P</td><td class="mono">1999</td><td class="mono">1M2P264CXXM029200</td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Landall</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Cattle Trailer</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Flat Trailer</td><td class="mono">TRL1-19</td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Tanglebriar</td></tr>
+      <tr><td><span class="chip chip-blue">Trailer</span></td><td>Flat Trailer</td><td class="mono">TRL1-02</td><td></td><td></td><td class="mono"></td><td class="mono">112LPT203HT090149</td><td>Tanglebriar</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>Shop Skid</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>New Skid</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Tanglebriar</td></tr>
+      <tr><td><span class="chip chip-amber">Equipment</span></td><td>Excavator</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Eric Shop</td></tr>
+      <tr><td><span class="chip chip-green">Farm Equipment</span></td><td>Side by Side</td><td class="mono"></td><td></td><td></td><td class="mono"></td><td class="mono"></td><td>Tanglebriar</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="section" id="conex">
+  <div class="controls">
+    <input type="text" class="search-input" placeholder="Search conex…" data-search="conex-table">
+    <span class="count-badge" id="conex-count">21 containers</span>
+  </div>
+  <div class="data-table-wrap"><table class="data-table" id="conex-table">
+    <thead><tr><th>#</th><th>Location</th><th>Size</th><th>Code</th><th>Contains</th><th>Owner</th><th>Move?</th><th>New Location</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">1</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">broken</td><td>Nest Communities Office</td><td>CovePoint</td><td></td><td></td></tr>
+      <tr><td class="mono">2</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">Key</td><td>Haven't seen in</td><td></td><td></td><td></td></tr>
+      <tr><td class="mono">3</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">Key</td><td>Haven't seen in</td><td></td><td></td><td></td></tr>
+      <tr><td class="mono">4</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">Key</td><td>Haven't seen in</td><td></td><td></td><td></td></tr>
+      <tr><td class="mono">5</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">lock hanging</td><td>Jennifer Personal</td><td>Jennifer</td><td></td><td></td></tr>
+      <tr><td class="mono">6</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">lock hanging</td><td>Jennifer Personal</td><td>Jennifer</td><td></td><td></td></tr>
+      <tr><td class="mono">7</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">no lock</td><td>Eric Personal Items</td><td>Eric</td><td></td><td></td></tr>
+      <tr><td class="mono">8</td><td>Eric Shop</td><td class="mono">20</td><td class="mono">no lock</td><td>Eric Personal Items</td><td>Eric</td><td></td><td></td></tr>
+      <tr><td class="mono">9</td><td>Tanglebriar</td><td class="mono">20</td><td class="mono">key</td><td>Siteworks Tools (pumps, survey, testing equipment…)</td><td>Siteworks</td><td></td><td></td></tr>
+      <tr><td class="mono">10</td><td>Tanglebriar</td><td class="mono">20</td><td class="mono">1524</td><td>Sewer Materials/Fittings</td><td>Siteworks</td><td></td><td></td></tr>
+      <tr><td class="mono">11</td><td>Tanglebriar</td><td class="mono">20</td><td class="mono">5225</td><td>Mindy Personal</td><td>Mindy</td><td></td><td></td></tr>
+      <tr><td class="mono">12</td><td>Tanglebriar</td><td class="mono">20</td><td class="mono">1524</td><td>CP Cubical Desks, washer, Model Décor/Furniture, Stockley Pool Table</td><td>Mixed</td><td></td><td></td></tr>
+      <tr><td class="mono">13</td><td>Tanglebriar</td><td class="mono">40</td><td class="mono">no lock</td><td>Barn Wood</td><td>Eric</td><td></td><td></td></tr>
+      <tr><td class="mono">14</td><td>Tanglebriar</td><td class="mono">20</td><td class="mono">no lock</td><td>Mechanic Equipment</td><td>Mechanical</td><td></td><td></td></tr>
+      <tr><td class="mono">15</td><td>Tanglebriar House</td><td class="mono">20</td><td class="mono"></td><td>Preston Remodel</td><td>Preston</td><td></td><td></td></tr>
+      <tr><td class="mono">16</td><td>Tanglebriar House</td><td class="mono">20</td><td class="mono"></td><td>Preston Remodel</td><td>Preston</td><td></td><td></td></tr>
+      <tr><td class="mono">17</td><td>Logan Farms</td><td class="mono">20</td><td class="mono"></td><td>Construction Materials</td><td>Logan Farms Dev</td><td></td><td></td></tr>
+      <tr><td class="mono">18</td><td>Oates</td><td class="mono">20</td><td class="mono">?</td><td>SWM Items</td><td>SWM</td><td></td><td></td></tr>
+      <tr><td class="mono">19</td><td>Oates</td><td class="mono">40</td><td class="mono">1524</td><td>Model Home Furniture, Refrigrators</td><td>Nest Homes</td><td></td><td></td></tr>
+      <tr><td class="mono">20</td><td>Oates</td><td class="mono">40</td><td class="mono">1524</td><td>Misc Trim, Windows, home building supplies</td><td>Helmsman</td><td></td><td></td></tr>
+      <tr><td class="mono">21</td><td>Raceway</td><td class="mono">40</td><td class="mono">no lock</td><td>Office Remodel</td><td>Old Well Office</td><td></td><td></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+</div>
+<div class="footer">Generated from the Old Well Co Asset Inventory workbook · oldwellco.com</div>
+
+<script>
+document.querySelectorAll('.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+    window.scrollTo(0, 0);
+  });
+});
+document.querySelectorAll('.search-input').forEach(input => {
+  input.addEventListener('input', e => {
+    const term = e.target.value.toLowerCase();
+    const tableId = e.target.dataset.search;
+    const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+    let visible = 0;
+    rows.forEach(row => {
+      const match = row.textContent.toLowerCase().includes(term);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    const countId = tableId.replace('-table', '-count');
+    const countEl = document.getElementById(countId);
+    if (countEl) {
+      const labels = {vehicles: 'vehicles', equipment: 'items', conex: 'containers'};
+      const label = labels[tableId.replace('-table','')] || 'rows';
+      countEl.textContent = visible + ' ' + label + (term ? ' (filtered)' : '');
+    }
+  });
+});
+document.querySelectorAll('.data-table thead th').forEach((th, idx) => {
+  th.addEventListener('click', () => {
+    const table = th.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = !th.classList.contains('sorted-asc');
+    th.parentElement.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
+    th.classList.add(isAsc ? 'sorted-asc' : 'sorted-desc');
+    rows.sort((a,b) => {
+      const av = a.children[idx].textContent.trim();
+      const bv = b.children[idx].textContent.trim();
+      const an = parseFloat(av.replace(/[^0-9.-]/g,''));
+      const bn = parseFloat(bv.replace(/[^0-9.-]/g,''));
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn) && av.match(/[0-9]/) && bv.match(/[0-9]/)) cmp = an - bn;
+      else cmp = av.localeCompare(bv);
+      return isAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  });
+});
+</script>
+</body>
+</html>
